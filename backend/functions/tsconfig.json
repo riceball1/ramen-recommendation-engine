@@ -1,0 +1,33 @@
+{
+    "compilerOptions": {
+        "baseUrl": "src",
+        "module": "commonjs",
+        "noImplicitReturns": true,
+        "noUnusedLocals": true,
+        "outDir": "lib",
+        "paths": {
+            "controllers/*": [
+                "controllers/*"
+            ],
+            "middleware/*": [
+                "middleware/*"
+            ],
+            "models/*": [
+                "models/*"
+            ],
+            "routes/*": [
+                "routes/*"
+            ],
+            "utils/*": [
+                "utils/*"
+            ]
+        },
+        "sourceMap": true,
+        "strict": true,
+        "target": "es2017"
+    },
+    "compileOnSave": true,
+    "include": [
+        "."
+    ]
+}
