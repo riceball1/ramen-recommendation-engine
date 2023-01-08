@@ -1,4 +1,6 @@
 import { Response } from 'express'
+import { DateTime } from 'luxon'
+import { v4 } from 'uuid'
 import { Ramen } from 'models/ramen'
 import { db } from 'utils/firebase'
 
@@ -16,13 +18,14 @@ const getRamen = async ({ params }: Request, res: Response) => {
         if (ramenId) {
             const entry = await db.collection('ramen').doc(ramenId).get()
 
+            const ramen = entry.data()
+            if (!ramen) {
+                throw new Error()
+            }
+
             return res
                 .status(200)
-                .send({
-                    status: 'success',
-                    message: 'Ramen added successfully',
-                    data: entry,
-                })
+                .send(ramen)
 
         } else {
             const ramen: Ramen[] = []
@@ -45,15 +48,17 @@ const postRamen = async ({ body }: Request, res: Response) => {
     try {
         const entry = db.collection('ramen').doc()
 
-        await entry.set(body)
+        Object.assign(body, {
+            id: v4(),
+            created: DateTime.utc().toISO(),
+            updated: '',
+        })
+
+        const ramen = await entry.set(body)
 
         return res
             .status(200)
-            .send({
-                status: 'success',
-                message: 'Ramen added successfully',
-                data: body,
-            })
+            .send(ramen)
 
     } catch(error: unknown) {
         return res
@@ -69,8 +74,15 @@ const putRamen = async ({ body, params }: Request, res: Response) => {
 
     try {
         const entry = db.collection('ramen').doc(ramenId)
+        if (!entry) {
+            throw new Error()
+        }
 
-        await entry
+        Object.assign(body, {
+            updated: DateTime.utc().toISO(),
+        })
+
+        const ramen = await entry
             .set(body)
             .catch(error => (
                 res.status(400).json({
@@ -81,13 +93,9 @@ const putRamen = async ({ body, params }: Request, res: Response) => {
 
         return res
             .status(200)
-            .json({
-                status: 'success',
-                message: 'Ramen updated successfully',
-                data: body,
-            })
-    }
-    catch(error: unknown) {
+            .json(ramen)
+
+    } catch(error: unknown) {
         return res
             .status(500)
             .json((error as any).message)
@@ -100,6 +108,11 @@ const deleteRamen = async ({ params }: Request, res: Response) => {
     try {
         const entry = db.collection('ramen').doc(ramenId)
 
+        const ramen = (await entry.get()).data()
+        if (!ramen) {
+            throw new Error()
+        }
+
         await entry
             .delete()
             .catch(error => (
@@ -111,13 +124,9 @@ const deleteRamen = async ({ params }: Request, res: Response) => {
 
         return res
             .status(200)
-            .json({
-                status: 'success',
-                message: 'Ramen deleted successfully',
-            })
+            .json(`${ramen.name} deleted successfully`)
 
-    }
-    catch(error: unknown) {
+    } catch(error: unknown) {
         return res
             .status(500)
             .json((error as any).message)
