@@ -1,7 +1,8 @@
-import { Response } from 'express'
+import { NextFunction, Request as ExpressRequest, Response } from 'express'
 import { DateTime } from 'luxon'
 import { v4 } from 'uuid'
 import { Question } from 'models/question'
+import AppError, { StatusCode } from 'utils/error'
 import { db } from 'utils/firebase'
 
 type Request = {
@@ -9,9 +10,9 @@ type Request = {
     params: {
         questionId: string
     }
-}
+} & Omit<ExpressRequest, 'body' | 'params'>
 
-const getQuestion = async ({ params }: Request, res: Response) => {
+const getQuestion = async ({ params }: Request, res: Response, next: NextFunction) => {
     const { questionId } = params
 
     try {
@@ -20,7 +21,7 @@ const getQuestion = async ({ params }: Request, res: Response) => {
 
             const question = entry.data()
             if (!question) {
-                throw new Error()
+                throw new AppError(`Question cannot be found with id: ${questionId}.`, StatusCode.NOT_FOUND)
             }
 
             return res
@@ -38,13 +39,11 @@ const getQuestion = async ({ params }: Request, res: Response) => {
         }
 
     } catch(error: unknown) {
-        return res
-            .status(500)
-            .json((error as any).message)
+        return next(error)
     }
 }
 
-const postQuestion = async ({ body }: Request, res: Response) => {
+const postQuestion = async ({ body }: Request, res: Response, next: NextFunction) => {
     try {
         const entry = db.collection('question').doc()
 
@@ -54,60 +53,44 @@ const postQuestion = async ({ body }: Request, res: Response) => {
             updated: '',
         })
 
-        const question = await entry
-            .set(body)
-            .then((value) => value)
+        const question = await entry.set(body)
 
         return res
             .status(200)
             .send(question)
 
     } catch(error: unknown) {
-        return res
-            .status(500)
-            .json((error as any).message)
+        return next(error)
     }
 }
 
 
 
-const putQuestion = async ({ body, params }: Request, res: Response) => {
+const putQuestion = async ({ body, params }: Request, res: Response, next: NextFunction) => {
     const { questionId } = params
 
     try {
         const entry = db.collection('question').doc(questionId)
         if (!entry) {
-            throw new Error()
+            throw new AppError(`Question cannot be found with id: ${questionId}.`, StatusCode.NOT_FOUND)
         }
 
         Object.assign(body, {
             updated: DateTime.utc().toISO(),
         })
 
-        const question = await entry
-            .set(body)
-            .then((value) => value)
-            .catch(error => (
-                res
-                    .status(400)
-                    .json({
-                        status: 'error',
-                        message: error.message,
-                    })
-            ))
+        const question = await entry.set(body)
 
         return res
             .status(200)
             .json(question)
 
     } catch(error: unknown) {
-        return res
-            .status(500)
-            .json((error as any).message)
+        return next(error)
     }
 }
 
-const deleteQuestion = async ({ params }: Request, res: Response) => {
+const deleteQuestion = async ({ params }: Request, res: Response, next: NextFunction) => {
     const { questionId } = params
 
     try {
@@ -115,28 +98,17 @@ const deleteQuestion = async ({ params }: Request, res: Response) => {
 
         const question = (await entry.get()).data()
         if (!question) {
-            throw new Error()
+            throw new AppError(`Question cannot be found with id: ${questionId}.`, StatusCode.NOT_FOUND)
         }
 
-        await entry
-            .delete()
-            .catch(error => (
-                res
-                    .status(400)
-                    .json({
-                        status: 'error',
-                        message: error.message
-                    })
-            ))
+        await entry.delete()
 
         return res
             .status(200)
             .json(`${question.name} deleted successfully`)
 
     } catch(error: unknown) {
-        return res
-            .status(500)
-            .json((error as any).message)
+        return next(error)
     }
 }
 
