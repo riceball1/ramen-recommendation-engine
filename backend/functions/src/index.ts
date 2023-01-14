@@ -1,6 +1,7 @@
 import * as bodyParser from 'body-parser'
 import * as functions from 'firebase-functions'
 import * as express from 'express'
+import 'express-async-errors'
 import { cors } from 'middleware'
 import { ramenRouter, questionRouter } from 'routes'
 import { ramenRouter } from 'routes'
