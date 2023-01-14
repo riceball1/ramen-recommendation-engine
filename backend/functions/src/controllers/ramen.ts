@@ -1,7 +1,8 @@
-import { Response } from 'express'
+import { NextFunction, Request as ExpressRequest, Response } from 'express'
 import { DateTime } from 'luxon'
 import { v4 } from 'uuid'
 import { Ramen } from 'models/ramen'
+import AppError, { StatusCode } from 'utils/error'
 import { db } from 'utils/firebase'
 
 type Request = {
@@ -9,9 +10,9 @@ type Request = {
     params: {
         ramenId: string
     }
-}
+} & Omit<ExpressRequest, 'body' | 'params'>
 
-const getRamen = async ({ params }: Request, res: Response) => {
+const getRamen = async ({ params }: Request, res: Response, next: NextFunction) => {
     const { ramenId } = params
 
     try {
@@ -20,7 +21,7 @@ const getRamen = async ({ params }: Request, res: Response) => {
 
             const ramen = entry.data()
             if (!ramen) {
-                throw new Error()
+                throw new AppError(`Ramen cannot be found with id: ${ramenId}.`, StatusCode.NOT_FOUND)
             }
 
             return res
@@ -38,13 +39,11 @@ const getRamen = async ({ params }: Request, res: Response) => {
         }
 
     } catch(error: unknown) {
-        return res
-            .status(500)
-            .json((error as any).message)
+        return next(error)
     }
 }
 
-const postRamen = async ({ body }: Request, res: Response) => {
+const postRamen = async ({ body }: Request, res: Response, next: NextFunction) => {
     try {
         const entry = db.collection('ramen').doc()
 
@@ -61,48 +60,37 @@ const postRamen = async ({ body }: Request, res: Response) => {
             .send(ramen)
 
     } catch(error: unknown) {
-        return res
-            .status(500)
-            .json((error as any).message)
+        return next(error)
     }
 }
 
 
 
-const putRamen = async ({ body, params }: Request, res: Response) => {
+const putRamen = async ({ body, params }: Request, res: Response, next: NextFunction) => {
     const { ramenId } = params
 
     try {
         const entry = db.collection('ramen').doc(ramenId)
         if (!entry) {
-            throw new Error()
+            throw new AppError(`Ramen cannot be found with id: ${ramenId}.`, StatusCode.NOT_FOUND)
         }
 
         Object.assign(body, {
             updated: DateTime.utc().toISO(),
         })
 
-        const ramen = await entry
-            .set(body)
-            .catch(error => (
-                res.status(400).json({
-                    status: 'error',
-                    message: error.message,
-                })
-            ))
+        const ramen = await entry.set(body)
 
         return res
             .status(200)
             .json(ramen)
 
     } catch(error: unknown) {
-        return res
-            .status(500)
-            .json((error as any).message)
+        return next(error)
     }
 }
 
-const deleteRamen = async ({ params }: Request, res: Response) => {
+const deleteRamen = async ({ params }: Request, res: Response, next: NextFunction) => {
     const { ramenId } = params
 
     try {
@@ -110,26 +98,17 @@ const deleteRamen = async ({ params }: Request, res: Response) => {
 
         const ramen = (await entry.get()).data()
         if (!ramen) {
-            throw new Error()
+            throw new AppError(`Ramen cannot be found with id: ${ramenId}.`, StatusCode.NOT_FOUND)
         }
 
-        await entry
-            .delete()
-            .catch(error => (
-                res.status(400).json({
-                    status: 'error',
-                    message: error.message
-                })
-            ))
+        await entry.delete()
 
         return res
             .status(200)
             .json(`${ramen.name} deleted successfully`)
 
     } catch(error: unknown) {
-        return res
-            .status(500)
-            .json((error as any).message)
+        return next(error)
     }
 }
 
